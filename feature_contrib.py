@@ -3,6 +3,9 @@
  To Calculate feature contributions at observation level using XGBoost
 --------------------------------------------------------------------
 '''
+#------------------
+#import packages
+#------------------
 import numpy as np
 import pandas as pd
 import time
@@ -13,7 +16,7 @@ from sklearn import metrics
 #------------------------------------------------------
 # Wrap configurations and helper functions in a class
 #------------------------------------------------------
-class Contrib:
+class contribution:
 def __init__(self):
 self.dataDir = 'data/'
 self.header_csv = self.dataDir+'train_sample_header.csv'
@@ -57,14 +60,14 @@ if trainFlag:
 print '\n2. Training model...'
 param = {'max_depth':5, 'eta':0.05, 'silent':0, 'objective':'binary:logistic','lambda':1.0, 'alpha':0, 'scale_pos_weight':1, 'subsample':1, 'max_delta_step':1}
 bst = xg.train(param, dtrain, self.num_round)
-preds_train = bst.predict(dtrain,pred_contribs=False)
+preds_train = bst.predict(dtrain,pred_contributions=False)
 print 'GINI (train)', 2*metrics.roc_auc_score(trainDf['ind'].values, preds_train) - 1
 bst.save_model('xgb.model')
 else:
 # Load model
 print '2. Loading previously trained model'
 bst = xg.Booster(model_file='xgb.model')
-preds_train = bst.predict(dtrain,pred_contribs=False)
+preds_train = bst.predict(dtrain,pred_contributions=False)
 print 'GINI (train)', 2*metrics.roc_auc_score(trainDf['ind'].values, preds_train) - 1
 return bst
 
@@ -75,9 +78,9 @@ df = df.reset_index(drop=True)
 df_new = df.iloc[:self.n_top,:-1]
 return df_new, df
 
-def explain(self,bst,df_oot_contrib,doot_contrib,df_oot,iids):
+def explain(self,bst,df_oot_contribution,doot_contribution,df_oot,iids):
 # Obtain feature contributions in XGBoost
-preds_oot = bst.predict(doot_contrib,pred_contribs=True) # feature contributions, ndarry of size [n_sample, (n_features + 1)]
+preds_oot = bst.predict(doot_contribution,pred_contributions=True) # feature contributions, ndarry of size [n_sample, (n_features + 1)]
 
 # Join feature contributions with actual values
 df_preds_oot = pd.DataFrame(preds_oot[:,:-1])
@@ -86,8 +89,8 @@ df_preds_oot['id'] = df_oot['id']
 df_preds_oot['ind'] = df_oot['ind']
 dict_preds_oot = df_preds_oot.to_dict(orient="index") # customer, feature contributions
 
-df_oot_contrib.set_index("id", drop=True, inplace=True)
-dict_df_oot = df_oot_contrib.to_dict(orient="index") # customer, feature values
+df_oot_contribution.set_index("id", drop=True, inplace=True)
+dict_df_oot = df_oot_contribution.to_dict(orient="index") # customer, feature values
 
 # Output feature contributions
 for iid in iids:
@@ -95,14 +98,14 @@ dict_sample = sorted( ((v,k) for k,v in dict_preds_oot[iid].iteritems() if (k !=
 cust = dict_preds_oot[iid]['id']
 print 'id: ', cust
 print 'score: ',df_oot['score'].values[1]
-print '\nContribution,Feature,Value:'
+print '\ncontribution,Feature,Value:'
 for (v,k) in dict_sample:
 if k != 'ind':
 print ','.join((str(v),k,str(dict_df_oot[cust][k])))
 
 
 #---------------
-# Main program
+# Main program starts here
 #---------------
 if __name__ == '__main__':
 print 'Starting program...'
@@ -111,7 +114,7 @@ startTime = time.time()
 # 0. Initiate configuration
 #---------------------------
 trainFlag = False # To train the model or not. If True, train a new model; if False, load a previously-trained model
-model = Contrib()
+model = contribution()
 
 #------------------------
 # 1. Load training data
@@ -134,7 +137,7 @@ endTrainTime = time.time()
 print '3. Loading testing data...'
 df_oot = model.readTestData()
 doot, doot_columns = model.dfToDmatrix(df_oot)
-preds_test = bst.predict(doot,pred_contribs=False) # probability scores
+preds_test = bst.predict(doot,pred_contributions=False) # probability scores
 df_oot['score'] = pd.DataFrame(preds_test)
 print 'GINI (out-of-time test)', 2*metrics.roc_auc_score(df_oot['ind'].values, preds_test) - 1
 
@@ -143,12 +146,12 @@ print 'GINI (out-of-time test)', 2*metrics.roc_auc_score(df_oot['ind'].values, p
 #---------------------------------------------------
 print '\n4. Interpreting predictions...'
 # Select top scores for explanation
-df_oot_contrib, df_oot = model.selectTop(df_oot)
-doot_contrib, doot_contrib_columns = model.dfToDmatrix(df_oot_contrib)
+df_oot_contribution, df_oot = model.selectTop(df_oot)
+doot_contribution, doot_contribution_columns = model.dfToDmatrix(df_oot_contribution)
 iids = [1]
 #iids = range(1)
 startExpTime = time.time() 
-model.explain(bst, df_oot_contrib, doot_contrib, df_oot, iids)
+model.explain(bst, df_oot_contribution, doot_contribution, df_oot, iids)
 
 endExpTime = time.time()
 endTime = time.time()
